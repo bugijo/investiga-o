@@ -22,26 +22,32 @@ const EvidenceGallery = ({ evidences }: EvidenceGalleryProps) => {
         <h3 className="text-xs text-muted-foreground tracking-[0.3em] mb-3 border-b border-muted/30 pb-2">
           EVIDÊNCIAS FOTOGRÁFICAS
         </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {evidences.map((evidence) => (
-            <button
-              key={evidence.id}
-              onClick={() => setSelectedEvidence(evidence)}
-              className="aspect-square bg-muted/20 border border-muted/30 hover:border-primary/50 transition-colors relative overflow-hidden group"
-            >
-              <img
-                src={evidence.thumbnail}
-                alt={`Evidência ${evidence.id}`}
-                className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity filter grayscale"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-background/80 px-2 py-1">
-                <span className="text-[10px] text-primary font-mono">
-                  EVID. {evidence.id}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
+        {evidences.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground/70 font-mono">
+            Nenhuma evidência liberada nesta fase.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {evidences.map((evidence) => (
+              <button
+                key={evidence.id}
+                onClick={() => setSelectedEvidence(evidence)}
+                className="aspect-square bg-muted/20 border border-muted/30 hover:border-primary/50 transition-colors relative overflow-hidden group"
+              >
+                <img
+                  src={evidence.thumbnail}
+                  alt={`Evidência ${evidence.id}`}
+                  className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity filter grayscale"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-background/80 px-2 py-1">
+                  <span className="text-[10px] text-primary font-mono">
+                    EVID. {evidence.id}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Fullscreen Viewer */}

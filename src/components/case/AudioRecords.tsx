@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Pause } from 'lucide-react';
 
@@ -18,6 +18,7 @@ const AudioRecords = ({ records }: AudioRecordsProps) => {
   const [showPlayer, setShowPlayer] = useState(false);
   const [currentRecord, setCurrentRecord] = useState<AudioRecord | null>(null);
   const [progress, setProgress] = useState(0);
+  const intervalRef = useRef<number | null>(null);
 
   const handlePlay = (record: AudioRecord) => {
     if (record.status !== 'DISPONÍVEL') return;
@@ -25,19 +26,34 @@ const AudioRecords = ({ records }: AudioRecordsProps) => {
     setShowPlayer(true);
     setPlayingId(record.id);
     setProgress(0);
+  };
 
-    // Simulate playback progress
-    const interval = setInterval(() => {
+  useEffect(() => {
+    if (!playingId) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    intervalRef.current = window.setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
-          clearInterval(interval);
           setPlayingId(null);
           return 100;
         }
         return prev + 2;
       });
     }, 100);
-  };
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [playingId]);
 
   const handleClose = () => {
     setShowPlayer(false);
@@ -51,33 +67,39 @@ const AudioRecords = ({ records }: AudioRecordsProps) => {
         <h3 className="text-xs text-muted-foreground tracking-[0.3em] mb-3 border-b border-muted/30 pb-2">
           REGISTROS DE ÁUDIO
         </h3>
-        <div className="space-y-2">
-          {records.map((record) => (
-            <button
-              key={record.id}
-              onClick={() => handlePlay(record)}
-              disabled={record.status !== 'DISPONÍVEL'}
-              className={`w-full text-left p-3 border font-mono text-xs transition-colors ${
-                record.status === 'DISPONÍVEL'
-                  ? 'border-muted/30 hover:border-primary/50 bg-card/20'
-                  : 'border-muted/20 opacity-50 cursor-not-allowed'
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="text-primary">[ ÁUDIO {record.id} ]</span>
-                <span className={`${
-                  record.status === 'DISPONÍVEL' ? 'text-primary' : 'text-destructive'
-                }`}>
-                  {record.status}
-                </span>
-              </div>
-              <div className="mt-2 text-muted-foreground">
-                <span>ORIGEM: {record.origin}</span>
-                <span className="ml-4">DURAÇÃO: {record.duration}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+        {records.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground/70 font-mono">
+            Nenhum áudio liberado nesta fase.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {records.map((record) => (
+              <button
+                key={record.id}
+                onClick={() => handlePlay(record)}
+                disabled={record.status !== 'DISPONÍVEL'}
+                className={`w-full text-left p-3 border font-mono text-xs transition-colors ${
+                  record.status === 'DISPONÍVEL'
+                    ? 'border-muted/30 hover:border-primary/50 bg-card/20'
+                    : 'border-muted/20 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-primary">[ ÁUDIO {record.id} ]</span>
+                  <span className={`${
+                    record.status === 'DISPONÍVEL' ? 'text-primary' : 'text-destructive'
+                  }`}>
+                    {record.status}
+                  </span>
+                </div>
+                <div className="mt-2 text-muted-foreground">
+                  <span>ORIGEM: {record.origin}</span>
+                  <span className="ml-4">DURAÇÃO: {record.duration}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Audio Player Modal */}
