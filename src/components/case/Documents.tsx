@@ -21,20 +21,26 @@ const Documents = ({ documents }: DocumentsProps) => {
         <h3 className="text-xs text-muted-foreground tracking-[0.3em] mb-3 border-b border-muted/30 pb-2">
           DOCUMENTOS
         </h3>
-        <div className="space-y-2">
-          {documents.map((doc) => (
-            <button
-              key={doc.id}
-              onClick={() => setSelectedDoc(doc)}
-              className="w-full text-left p-3 border border-muted/30 hover:border-primary/50 bg-card/20 font-mono text-xs transition-colors flex items-center gap-3"
-            >
-              <FileText className="w-4 h-4 text-primary" />
-              <span className="text-foreground">
-                [ DOC {doc.id} ] — {doc.title}
-              </span>
-            </button>
-          ))}
-        </div>
+        {documents.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground/70 font-mono">
+            Nenhum documento liberado nesta fase.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {documents.map((doc) => (
+              <button
+                key={doc.id}
+                onClick={() => setSelectedDoc(doc)}
+                className="w-full text-left p-3 border border-muted/30 hover:border-primary/50 bg-card/20 font-mono text-xs transition-colors flex items-center gap-3"
+              >
+                <FileText className="w-4 h-4 text-primary" />
+                <span className="text-foreground">
+                  [ DOC {doc.id} ] — {doc.title}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Document Viewer Modal */}
