@@ -56,9 +56,10 @@ const Dashboard = () => {
 
   const handleLoadingComplete = useCallback(() => {
     setIsLoading(false);
-    // Navigate to case detail page when implemented
-    // navigate(`/caso/${selectedCase}`);
-  }, [selectedCase]);
+    if (selectedCase) {
+      navigate(`/caso/${selectedCase}`);
+    }
+  }, [selectedCase, navigate]);
 
   const handleLogout = useCallback(() => {
     navigate('/');
