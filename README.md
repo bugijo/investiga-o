@@ -64,6 +64,15 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
+### GitHub Pages (preview online)
+
+This repository includes a GitHub Actions workflow that deploys the Vite build to GitHub Pages on every push to the `work` branch.
+
+1. In GitHub, go to **Settings → Pages**.
+2. Set **Source** to **GitHub Actions**.
+3. After the workflow runs, your site will be available at:
+   `https://<seu-usuario>.github.io/investiga-o/`
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!
