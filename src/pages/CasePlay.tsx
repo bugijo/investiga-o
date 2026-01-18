@@ -10,6 +10,8 @@ interface CaseEvidence {
   type: EvidenceType;
   title: string;
   file?: string;
+  summary?: string;
+  content?: string;
   phase: number | 'event';
 }
 
@@ -97,17 +99,91 @@ const caseData: CaseData = {
     },
   ],
   evidence: [
-    { id: 'img_001', type: 'image', title: 'Foto da Cena', file: '/placeholder.svg', phase: 1 },
-    { id: 'doc_002', type: 'pdf', title: 'B.O. Preliminar', file: '/placeholder.svg', phase: 1 },
-    { id: 'aud_003', type: 'audio', title: 'Depoimento: Marcos', file: '/placeholder.svg', phase: 1 },
-    { id: 'chat_004', type: 'chat', title: 'WhatsApp: Elena', file: '/placeholder.svg', phase: 2 },
-    { id: 'doc_006', type: 'pdf', title: 'Extrato: Marcos', file: '/placeholder.svg', phase: 2 },
-    { id: 'doc_005', type: 'pdf', title: 'Laudo Pericial', file: '/placeholder.svg', phase: 3 },
-    { id: 'aud_007', type: 'audio', title: 'Interceptação: Advogado', file: '/placeholder.svg', phase: 'event' },
-    { id: 'note_scene_01', type: 'note', title: 'Nota: Cena', phase: 1 },
-    { id: 'note_doorman_01', type: 'note', title: 'Nota: Porteiro', phase: 1 },
-    { id: 'note_neighbor_01', type: 'note', title: 'Nota: Vizinhos', phase: 1 },
-    { id: 'note_interrog_01', type: 'note', title: 'Nota: Interrogatório', phase: 1 },
+    {
+      id: 'img_001',
+      type: 'image',
+      title: 'Foto da Cena',
+      file: '/placeholder.svg',
+      summary: 'Corpo no pátio, relógio quebrado visível.',
+      phase: 1,
+    },
+    {
+      id: 'doc_002',
+      type: 'pdf',
+      title: 'B.O. Preliminar',
+      file: '/placeholder.svg',
+      summary: 'Registro inicial da ocorrência, sem conclusão.',
+      phase: 1,
+    },
+    {
+      id: 'aud_003',
+      type: 'audio',
+      title: 'Depoimento: Marcos',
+      file: '/placeholder.svg',
+      summary: 'Marido descreve depressão e uso de remédios.',
+      phase: 1,
+    },
+    {
+      id: 'chat_004',
+      type: 'chat',
+      title: 'WhatsApp: Elena',
+      file: '/placeholder.svg',
+      summary: 'Mensagem mostra empolgação com viagem.',
+      phase: 2,
+    },
+    {
+      id: 'doc_006',
+      type: 'pdf',
+      title: 'Extrato: Marcos',
+      file: '/placeholder.svg',
+      summary: 'Dívidas e gastos incompatíveis.',
+      phase: 2,
+    },
+    {
+      id: 'doc_005',
+      type: 'pdf',
+      title: 'Laudo Pericial',
+      file: '/placeholder.svg',
+      summary: 'Distância da queda sugere impulso externo.',
+      phase: 3,
+    },
+    {
+      id: 'aud_007',
+      type: 'audio',
+      title: 'Interceptação: Advogado',
+      file: '/placeholder.svg',
+      summary: 'Pressão para cremação rápida.',
+      phase: 'event',
+    },
+    {
+      id: 'note_scene_01',
+      type: 'note',
+      title: 'Nota: Cena',
+      content:
+        'Corpo em decúbito dorsal. Ambiente organizado demais para um crime violento.',
+      phase: 1,
+    },
+    {
+      id: 'note_doorman_01',
+      type: 'note',
+      title: 'Nota: Porteiro',
+      content: 'Relata luz acesa após 00:10, apesar do suposto horário.',
+      phase: 1,
+    },
+    {
+      id: 'note_neighbor_01',
+      type: 'note',
+      title: 'Nota: Vizinhos',
+      content: 'Ouviu barulho semelhante a móvel arrastando por volta de 23:20.',
+      phase: 1,
+    },
+    {
+      id: 'note_interrog_01',
+      type: 'note',
+      title: 'Nota: Interrogatório',
+      content: 'Marcos insiste em depressão e diz que estava dopado.',
+      phase: 1,
+    },
   ],
   triads: [
     {
@@ -155,6 +231,12 @@ interface CaseProgress {
   accuseUnlocked: boolean;
   completedActions: string[];
   scheduledUnlocks: ScheduledUnlock[];
+  actionLog: {
+    id: string;
+    label: string;
+    timeCost: number;
+    atMinute: number;
+  }[];
 }
 
 const storageKey = `caseProgress:${caseData.id}`;
@@ -167,6 +249,7 @@ const defaultProgress: CaseProgress = {
   accuseUnlocked: false,
   completedActions: [],
   scheduledUnlocks: [],
+  actionLog: [],
 };
 
 const CasePlay = () => {
@@ -176,7 +259,13 @@ const CasePlay = () => {
   const [progress, setProgress] = useState<CaseProgress>(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
-      return { ...defaultProgress, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      return {
+        ...defaultProgress,
+        ...parsed,
+        actionLog: parsed.actionLog ?? [],
+        scheduledUnlocks: parsed.scheduledUnlocks ?? [],
+      };
     }
     return defaultProgress;
   });
@@ -209,6 +298,11 @@ const CasePlay = () => {
     () => caseData.baseTimeMinutes - progress.timeRemainingMinutes,
     [progress.timeRemainingMinutes],
   );
+  const formatMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const remaining = minutes % 60;
+    return `${String(hours).padStart(2, '0')}h${String(remaining).padStart(2, '0')}`;
+  };
 
   const availableEvidence = useMemo(
     () =>
@@ -219,6 +313,7 @@ const CasePlay = () => {
   const notes = availableEvidence.filter((item) => item.type === 'note');
   const dossieItems = availableEvidence.filter((item) => item.type !== 'audio' && item.type !== 'note');
   const audioItems = availableEvidence.filter((item) => item.type === 'audio');
+  const labOptions = availableEvidence.filter((item) => item.type !== 'note');
 
   const handleAction = (actionId: string) => {
     const action = caseData.actions.find((entry) => entry.id === actionId);
@@ -242,6 +337,15 @@ const CasePlay = () => {
       unlockedEvidenceIds: Array.from(new Set([...prev.unlockedEvidenceIds, ...newUnlocks])),
       completedActions: [...prev.completedActions, actionId],
       scheduledUnlocks,
+      actionLog: [
+        {
+          id: action.id,
+          label: action.label,
+          timeCost: action.timeCost,
+          atMinute: nextElapsed,
+        },
+        ...prev.actionLog,
+      ].slice(0, 6),
     }));
   };
 
@@ -345,6 +449,25 @@ const CasePlay = () => {
     );
   };
 
+  const handleReset = () => {
+    localStorage.removeItem(storageKey);
+    setProgress(defaultProgress);
+    setSelectedEvidenceId(null);
+    setLabFact('');
+    setLabEvidence('');
+    setLabLink('');
+    setLabFeedback(null);
+    setShowNoiseEvent(false);
+    setShowAccusation(false);
+    setAccusationForm({
+      suspect: '',
+      motive: '',
+      method: '',
+      keyProof: '',
+    });
+    setAccusationResult(null);
+  };
+
   return (
     <div className="min-h-screen bg-black text-[#bdbdbd] font-mono">
       <CRTOverlay />
@@ -352,12 +475,20 @@ const CasePlay = () => {
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-emerald-500/30 bg-black/90 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3 text-xs tracking-widest">
           <span className="text-[#bdbdbd]">INQUÉRITO 00 — {caseData.title}</span>
-          <button
-            onClick={() => navigate(`/caso/${caseData.id === 'case00_a_queda' ? '00' : ''}`)}
-            className="text-emerald-400 hover:text-emerald-200 transition-colors"
-          >
-            DOSSIÊ
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/caso/${caseData.id === 'case00_a_queda' ? '00' : ''}`)}
+              className="text-emerald-400 hover:text-emerald-200 transition-colors"
+            >
+              DOSSIÊ
+            </button>
+            <button
+              onClick={handleReset}
+              className="text-emerald-400/70 hover:text-emerald-200 transition-colors"
+            >
+              RESETAR
+            </button>
+          </div>
         </div>
         <div className="flex items-center justify-around border-t border-emerald-500/20 py-2 text-[10px]">
           <div className="text-center">
@@ -412,11 +543,34 @@ const CasePlay = () => {
                 <p className="text-emerald-400 tracking-[0.3em]">ANOTAÇÕES</p>
                 <ul className="mt-3 space-y-2 text-emerald-200/80">
                   {notes.map((note) => (
-                    <li key={note.id}>• {note.title}</li>
+                    <li key={note.id}>
+                      <p className="text-emerald-200">• {note.title}</p>
+                      {note.content && (
+                        <p className="text-emerald-200/70 mt-1">{note.content}</p>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </div>
             )}
+
+            <div className="border border-emerald-500/20 p-4 text-xs">
+              <p className="text-emerald-400 tracking-[0.3em]">LOG DE CAMPO</p>
+              {progress.actionLog.length === 0 ? (
+                <p className="text-emerald-300/60 mt-3">Nenhuma ação registrada.</p>
+              ) : (
+                <ul className="mt-3 space-y-2 text-emerald-200/80">
+                  {progress.actionLog.map((entry) => (
+                    <li key={`${entry.id}-${entry.atMinute}`}>
+                      <p className="text-emerald-200">{entry.label}</p>
+                      <p className="text-emerald-200/60">
+                        +{entry.timeCost}m • {formatMinutes(entry.atMinute)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         )}
 
@@ -435,6 +589,9 @@ const CasePlay = () => {
                   >
                     <span className="text-emerald-300">{item.title}</span>
                     <span className="ml-2 text-emerald-400/60">[{item.type.toUpperCase()}]</span>
+                    {item.summary && (
+                      <p className="text-emerald-200/60 mt-1">{item.summary}</p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -456,6 +613,9 @@ const CasePlay = () => {
                     className="w-full text-left border border-emerald-500/20 px-3 py-2 text-xs hover:border-emerald-400/60 transition-colors"
                   >
                     <span className="text-emerald-300">{item.title}</span>
+                    {item.summary && (
+                      <p className="text-emerald-200/60 mt-1">{item.summary}</p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -487,7 +647,7 @@ const CasePlay = () => {
                   className="mt-1 w-full bg-black border border-emerald-500/20 px-2 py-1"
                 >
                   <option value="">Selecionar</option>
-                  {availableEvidence.map((item) => (
+                  {labOptions.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.title}
                     </option>
@@ -502,7 +662,7 @@ const CasePlay = () => {
                   className="mt-1 w-full bg-black border border-emerald-500/20 px-2 py-1"
                 >
                   <option value="">Selecionar</option>
-                  {availableEvidence.map((item) => (
+                  {labOptions.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.title}
                     </option>
@@ -583,6 +743,9 @@ const CasePlay = () => {
                 FECHAR
               </button>
             </div>
+            {selectedEvidence.summary && (
+              <p className="text-xs text-emerald-200/70 mb-4">{selectedEvidence.summary}</p>
+            )}
             {selectedEvidence.type === 'image' && (
               <div className="flex-1 flex items-center justify-center">
                 <img
@@ -709,7 +872,7 @@ const CasePlay = () => {
                   className="mt-1 w-full bg-black border border-emerald-500/20 px-2 py-1"
                 >
                   <option value="">Selecionar</option>
-                  {availableEvidence.map((item) => (
+                  {labOptions.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.title}
                     </option>
