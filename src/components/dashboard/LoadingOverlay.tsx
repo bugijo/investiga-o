@@ -25,7 +25,8 @@ const LoadingOverlay = ({ isVisible, onComplete }: LoadingOverlayProps) => {
     let index = 0;
     const interval = setInterval(() => {
       if (index < messages.length) {
-        setLines(prev => [...prev, messages[index]]);
+        const message = messages[index];
+        setLines(prev => [...prev, message]);
         index++;
       } else {
         clearInterval(interval);
