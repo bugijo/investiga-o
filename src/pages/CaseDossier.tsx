@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import CaseHeader from '@/components/case/CaseHeader';
 import CaseIdentification from '@/components/case/CaseIdentification';
+import InvestigationActions from '@/components/case/InvestigationActions';
 import VictimProfile from '@/components/case/VictimProfile';
 import Timeline from '@/components/case/Timeline';
 import EvidenceGallery from '@/components/case/EvidenceGallery';
@@ -16,7 +17,7 @@ import CRTOverlay from '@/components/CRTOverlay';
 const caseData = {
   caseNumber: '00',
   classification: 'MORTE SUSPEITA',
-  status: 'ATIVO',
+  status: 'EM ANDAMENTO',
   openDate: '14/04/2026',
   victim: {
     age: '34 ANOS',
@@ -40,27 +41,17 @@ const caseData = {
       time: '09:36',
       description: 'Corpo encontrado pela zeladoria.',
     },
-    {
-      date: '14/04/2026',
-      time: '10:15',
-      description: 'Perícia técnica acionada.',
-    },
-    {
-      date: '14/04/2026',
-      time: '14:30',
-      description: 'Local isolado. Inquérito aberto.',
-    },
   ],
   evidences: [
-    { id: '01', thumbnail: '/placeholder.svg', location: 'ENTRADA', time: '09:38' },
-    { id: '02', thumbnail: '/placeholder.svg', location: 'SALA', time: '09:41' },
-    { id: '03', thumbnail: '/placeholder.svg', location: 'QUARTO', time: '09:45' },
-    { id: '04', thumbnail: '/placeholder.svg', location: 'BANHEIRO', time: '09:52' },
+    { id: '01', thumbnail: '/placeholder.svg', location: 'ENTRADA', time: '09:38', unlocks: 'examineScene' },
+    { id: '02', thumbnail: '/placeholder.svg', location: 'SALA', time: '09:41', unlocks: 'examineScene' },
+    { id: '03', thumbnail: '/placeholder.svg', location: 'QUARTO', time: '09:45', unlocks: 'forensicsPartial' },
+    { id: '04', thumbnail: '/placeholder.svg', location: 'BANHEIRO', time: '09:52', unlocks: 'forensicsPartial' },
   ],
   audioRecords: [
-    { id: '01', origin: 'PORTEIRO', duration: '01:32', status: 'DISPONÍVEL' as const },
-    { id: '02', origin: 'VIZINHO 1201', duration: '00:58', status: 'DISPONÍVEL' as const },
-    { id: '03', origin: 'ZELADOR', duration: '02:14', status: 'CORROMPIDO' as const },
+    { id: '01', origin: 'PORTEIRO', duration: '01:32', status: 'DISPONÍVEL' as const, unlocks: 'talkDoorman' },
+    { id: '02', origin: 'VIZINHO 1201', duration: '00:58', status: 'DISPONÍVEL' as const, unlocks: 'talkNeighbors' },
+    { id: '03', origin: 'ZELADOR', duration: '02:14', status: 'CORROMPIDO' as const, unlocks: 'forensicsPartial' },
   ],
   documents: [
     {
@@ -104,6 +95,29 @@ Análise de impressões digitais em curso.
 
 CLASSIFICAÇÃO: SIGILOSO
 DISTRIBUIÇÃO RESTRITA`,
+    },
+    {
+      id: '04',
+      title: 'RELATÓRIO DE DIGITAIS',
+      content: `IMPRESSÕES DIGITAIS — RELATÓRIO PARCIAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ORIGEM: APARTAMENTO 1203
+DATA: 14/04/2026
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DIGITAIS IDENTIFICADAS:
+- 02 compatíveis com a vítima
+- 01 incompatível (origem desconhecida)
+
+OBSERVAÇÕES:
+Superfícies com tentativa de limpeza.
+Nova rodada de coleta em andamento.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLASSIFICAÇÃO: SIGILOSO`,
     },
     {
       id: '02',
@@ -182,6 +196,37 @@ LEGENDA:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     },
+    {
+      id: '05',
+      title: 'LAUDO DE AUTÓPSIA',
+      content: `LAUDO DE AUTÓPSIA — SIGILOSO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VÍTIMA: [REDACTED]
+DATA: 15/04/2026
+MÉDICO LEGISTA: [REDACTED]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HORÁRIO ESTIMADO DA MORTE: 23:30
+
+OBSERVAÇÕES:
+- Ausência de sinais de luta corporal.
+- Hematomas superficiais em região occipital.
+- Traços de sedativo leve no exame toxicológico.
+
+NOTA:
+Horário estimado diverge de testemunhos iniciais.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLASSIFICAÇÃO: SIGILOSO`,
+    },
+  ],
+  sceneObservations: [
+    'Corpo em decúbito dorsal.',
+    'Ausência de sinais visíveis de luta.',
+    'Ambiente organizado demais para um crime violento.',
   ],
 };
 
@@ -190,6 +235,14 @@ const CaseDossier = () => {
   const navigate = useNavigate();
   const evidencesRef = useRef<HTMLDivElement>(null);
   const notesRef = useRef<HTMLDivElement>(null);
+  const [elapsedHours, setElapsedHours] = useState(0);
+  const [actions, setActions] = useState({
+    examineScene: false,
+    talkDoorman: false,
+    talkNeighbors: false,
+    callForensics: false,
+  });
+  const [forensicsRequestedAt, setForensicsRequestedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (caseNumber !== '00') {
@@ -197,12 +250,80 @@ const CaseDossier = () => {
     }
   }, [caseNumber, navigate]);
 
+  const handleAction = (actionId: keyof typeof actions) => {
+    if (actions[actionId]) return;
+
+    const timeCosts: Record<keyof typeof actions, number> = {
+      examineScene: 2,
+      talkDoorman: 1,
+      talkNeighbors: 1,
+      callForensics: 1,
+    };
+
+    const nextElapsed = elapsedHours + timeCosts[actionId];
+    setElapsedHours(nextElapsed);
+    setActions((prev) => ({ ...prev, [actionId]: true }));
+
+    if (actionId === 'callForensics' && forensicsRequestedAt === null) {
+      setForensicsRequestedAt(nextElapsed);
+    }
+  };
+
+  const handleAdvanceTime = () => {
+    setElapsedHours((prev) => prev + 1);
+  };
+
+  const hoursSinceForensics = useMemo(() => {
+    if (forensicsRequestedAt === null) return 0;
+    return Math.max(0, elapsedHours - forensicsRequestedAt);
+  }, [elapsedHours, forensicsRequestedAt]);
+
+  const forensicsPartialReady = actions.callForensics && hoursSinceForensics >= 6;
+  const autopsyReady = actions.callForensics && hoursSinceForensics >= 12;
+
+  const availableEvidences = useMemo(
+    () =>
+      caseData.evidences.filter((evidence) => {
+        if (evidence.unlocks === 'examineScene') return actions.examineScene;
+        if (evidence.unlocks === 'forensicsPartial') return forensicsPartialReady;
+        return true;
+      }),
+    [actions.examineScene, forensicsPartialReady],
+  );
+
+  const availableAudio = useMemo(
+    () =>
+      caseData.audioRecords.filter((record) => {
+        if (record.unlocks === 'talkDoorman') return actions.talkDoorman;
+        if (record.unlocks === 'talkNeighbors') return actions.talkNeighbors;
+        if (record.unlocks === 'forensicsPartial') return forensicsPartialReady;
+        return true;
+      }),
+    [actions.talkDoorman, actions.talkNeighbors, forensicsPartialReady],
+  );
+
+  const availableDocuments = useMemo(() => {
+    return caseData.documents.filter((doc) => {
+      if (doc.id === '01' || doc.id === '04') {
+        return forensicsPartialReady;
+      }
+      if (doc.id === '05') {
+        return autopsyReady;
+      }
+      return true;
+    });
+  }, [autopsyReady, forensicsPartialReady]);
+
   const scrollToEvidences = () => {
     evidencesRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const scrollToNotes = () => {
     notesRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleStartInvestigation = () => {
+    navigate(`/caso/${caseData.caseNumber}/play`);
   };
 
   return (
@@ -231,6 +352,77 @@ const CaseDossier = () => {
             />
           </motion.div>
 
+          {/* Investigation Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <InvestigationActions
+              status="EM ANDAMENTO"
+              elapsedHours={elapsedHours}
+              forensicsStatus={
+                actions.callForensics
+                  ? forensicsPartialReady
+                    ? 'RESULTADO PARCIAL DISPONÍVEL'
+                    : `EM ANDAMENTO (${Math.max(0, 6 - hoursSinceForensics)}H)`
+                  : 'NÃO ACIONADA'
+              }
+              autopsyStatus={
+                actions.callForensics
+                  ? autopsyReady
+                    ? 'LAUDO DISPONÍVEL'
+                    : 'AGUARDANDO'
+                  : 'NÃO SOLICITADA'
+              }
+              actions={[
+                {
+                  id: 'examineScene',
+                  label: '🔍 Examinar cena',
+                  description: 'Libera evidências fotográficas 01 e 02.',
+                  timeCost: 2,
+                  status: actions.examineScene ? 'CONCLUÍDA' : 'DISPONÍVEL',
+                },
+                {
+                  id: 'talkDoorman',
+                  label: '🧍‍♂️ Falar com porteiro',
+                  description: 'Desbloqueia o áudio do porteiro.',
+                  timeCost: 1,
+                  status: actions.talkDoorman ? 'CONCLUÍDA' : 'DISPONÍVEL',
+                },
+                {
+                  id: 'talkNeighbors',
+                  label: '🏢 Falar com vizinhos',
+                  description: 'Libera o áudio do vizinho 1201.',
+                  timeCost: 1,
+                  status: actions.talkNeighbors ? 'CONCLUÍDA' : 'DISPONÍVEL',
+                },
+                {
+                  id: 'callForensics',
+                  label: '🚫 Acionar perícia',
+                  description: 'Inicia contagem de 6h para resultados parciais.',
+                  timeCost: 1,
+                  status: actions.callForensics ? 'CONCLUÍDA' : 'DISPONÍVEL',
+                },
+              ]}
+              onAction={(id) => handleAction(id as keyof typeof actions)}
+              onAdvanceTime={handleAdvanceTime}
+            />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+          >
+            <button
+              onClick={handleStartInvestigation}
+              className="w-full border border-primary/50 hover:border-primary transition-colors text-xs font-mono px-3 py-2"
+            >
+              INICIAR MESA TÁTICA
+            </button>
+          </motion.div>
+
           {/* Victim Profile */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -239,6 +431,26 @@ const CaseDossier = () => {
           >
             <VictimProfile {...caseData.victim} />
           </motion.div>
+
+          {/* Scene Observations */}
+          {actions.examineScene && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+            >
+              <section className="border border-muted/30 bg-card/30 p-4">
+                <h3 className="text-xs text-muted-foreground tracking-[0.3em] mb-3 border-b border-muted/30 pb-2">
+                  OBSERVAÇÕES INICIAIS
+                </h3>
+                <ul className="space-y-2 text-xs text-muted-foreground font-mono">
+                  {caseData.sceneObservations.map((observation) => (
+                    <li key={observation}>• {observation}</li>
+                  ))}
+                </ul>
+              </section>
+            </motion.div>
+          )}
 
           {/* Timeline */}
           <motion.div
@@ -256,7 +468,7 @@ const CaseDossier = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <EvidenceGallery evidences={caseData.evidences} />
+            <EvidenceGallery evidences={availableEvidences} />
           </motion.div>
 
           {/* Audio Records */}
@@ -265,7 +477,7 @@ const CaseDossier = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
-            <AudioRecords records={caseData.audioRecords} />
+            <AudioRecords records={availableAudio} />
           </motion.div>
 
           {/* Documents */}
@@ -274,7 +486,7 @@ const CaseDossier = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
           >
-            <Documents documents={caseData.documents} />
+            <Documents documents={availableDocuments} />
           </motion.div>
 
           {/* Investigator Notes */}
