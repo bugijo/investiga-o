@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import BiometricScanner from '@/components/BiometricScanner';
@@ -5,12 +6,19 @@ import CRTOverlay from '@/components/CRTOverlay';
 import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
+  const navigate = useNavigate();
+
   const handleSuccess = () => {
     toast({
       title: "ACESSO AUTORIZADO",
-      description: "Bem-vindo ao sistema S.I.G.O.",
+      description: "Redirecionando para a Central...",
       className: "bg-card border-primary text-primary",
     });
+    
+    // Navigate to dashboard after brief delay
+    setTimeout(() => {
+      navigate('/central');
+    }, 1500);
   };
 
   const handleDenied = () => {
